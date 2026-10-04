@@ -1,0 +1,6 @@
+<svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Fond carré aux coins arrondis, bleu institutionnel -->
+  <rect width="40" height="40" rx="8" fill="#1E3A8A"/>
+  <!-- Initiales "BY" en blanc -->
+  <text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" fill="white" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="bold">BY</text>
+</svg>

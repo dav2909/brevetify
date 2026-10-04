@@ -1,0 +1,31 @@
+Data API : 
+https://cpntxhtmwhdsqpcyrmhb.supabase.co/rest/v1/
+
+publishable key
+sb_publishable_bC1FWRLQm7eKNDqwtyAQ3g_SrLlObAa
+
+
+
+brevetify/
+├── .env.local                  # Tes clés Supabase secrètes (jamais sur GitHub)
+├── .env.example                # Modèle de variables d'environnement
+├── middleware.ts               # Protection des routes privées
+├── package.json
+├── tailwind.config.js
+├── lib/
+│   └── supabase/
+│       ├── client.ts           # Client Supabase pour le navigateur
+│       └── server.ts           # Client Supabase pour le serveur (SSR)
+├── app/
+│   ├── layout.tsx              # Layout global
+│   ├── page.tsx                # Page d'accueil (Landing page Brevetify)
+│   ├── login/
+│   │   └── page.tsx            # Page de connexion / inscription
+│   ├── dashboard/
+│   │   └── page.tsx            # Tableau de bord de l'élève (progression)
+│   ├── matieres/
+│   │   ├── page.tsx            # Liste des matières (Maths, Français, etc.)
+│   │   └── [slug]/
+│   │       └── page.tsx        # Cours et quiz de la matière sélectionnée
+│   └── annales/
+│       └── page.tsx            # Banque des 10 dernières années d'annales + PDF
