@@ -10,7 +10,6 @@ export async function POST(req: Request) {
     const { priceId, userEmail, userId } = await req.json()
 
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
       mode: 'subscription',
       customer_email: userEmail,
       line_items: [
@@ -23,9 +22,9 @@ export async function POST(req: Request) {
         trial_period_days: 7, // 7 jours d'essai gratuit
       },
       metadata: {
-        userId, // ID Supabase pour faire le lien dans le webhook
+        userId: userId, // Lien avec l'ID Supabase pour le webhook
       },
-      success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/mathematiques?success=true`,
+      success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard?success=true`,
       cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/tarifs?canceled=true`,
     })
 
