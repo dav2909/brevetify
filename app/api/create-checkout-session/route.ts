@@ -22,7 +22,7 @@ export async function POST(req: Request) {
         trial_period_days: 7, // 7 jours d'essai gratuit
       },
       metadata: {
-        userId: userId, // Lien avec l'ID Supabase pour le webhook
+        userId: userId,
       },
       success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard?success=true`,
       cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/tarifs?canceled=true`,
