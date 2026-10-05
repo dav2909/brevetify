@@ -10,6 +10,7 @@ interface Chapter {
   description?: string
   category?: string
   matiere_name?: string
+  order_index?: number;
 }
 
 export default function FrancaisPage() {
