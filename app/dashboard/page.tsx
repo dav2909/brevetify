@@ -37,6 +37,7 @@ const CATEGORIES_CONFIG: Record<string, { label: string; color: string; bg: stri
 const CATEGORY_ORDER = ['mathematiques', 'francais', 'hist-geo-emc', 'science']
 
 export default function DashboardPage() {
+  const [sharingModule, setSharingModule] = useState<any>(null);
   const [chaptersData, setChaptersData] = useState<ChapterWithStatus[]>([])
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
