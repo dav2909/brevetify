@@ -138,7 +138,7 @@ export default function DashboardPage() {
 
   // Répartition par catégorie principale
   const groupedByCategory = chaptersData.reduce((acc, chapter) => {
-    const cat = chapter.category || 'hist-geo-emc'
+    const cat = chapter.any || 'hist-geo-emc'
     if (!acc[cat]) {
       acc[cat] = []
     }
@@ -285,7 +285,7 @@ export default function DashboardPage() {
                             {chapitresRestants === 0 ? (
                                 <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-emerald-600 font-bold">
                                   <span className="flex items-center gap-1.5">
-                                    🎉 Félicitations ! Module entièrement validé.
+                                     Félicitations ! Module entièrement validé.
                                   </span>
                                   <button
                                     onClick={() => setSharingModule({ name: moduleName, matiere: moduleData.matiereName })}
