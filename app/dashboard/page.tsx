@@ -138,7 +138,7 @@ export default function DashboardPage() {
 
   // Répartition par catégorie principale
   const groupedByCategory = chaptersData.reduce((acc, chapter) => {
-    const cat = chapter.any || 'hist-geo-emc'
+    const cat = (chapter as any).category || 'hist-geo-emc'
     if (!acc[cat]) {
       acc[cat] = []
     }
