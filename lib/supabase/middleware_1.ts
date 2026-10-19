@@ -27,14 +27,13 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  // Important : Ne pas exécuter de logique lourde entre createServerClient et supabase.auth.getUser()
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
   const path = request.nextUrl.pathname
 
-  // 1. Redirection vers /login si non connecté et tentative d'accès à une page protégée
+  // 1. Redirection vers /login si non connecté
   if (
     !user &&
     !path.startsWith('/login') &&
@@ -47,33 +46,47 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // 2. Si l'utilisateur est connecté, on gère les accès selon son rôle et son abonnement
+  // 2. Si l'utilisateur est connecté
   if (user) {
-    const { data: profile } = await supabase
+    console.log("--> [MIDDLEWARE] Utilisateur détecté :", user.email);
+
+    const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('role, subscription_status')
       .eq('id', user.id)
       .single()
 
+    console.log("--> [MIDDLEWARE] Profil récupéré :", profile);
+    console.log("--> [MIDDLEWARE] Erreur éventuelle SQL :", profileError);
+
     // Protection de la zone Administrateur (/admin)
     if (path.startsWith('/admin')) {
       if (profile?.role !== 'admin') {
         const url = request.nextUrl.clone()
-        url.pathname = '/dashboard' // Redirection vers le dashboard standard si non admin
+        url.pathname = '/dashboard'
         return NextResponse.redirect(url)
       }
     }
 
-    // Protection de la zone Utilisateur Payant (/dashboard ou révisions)
+    // Protection du Dashboard pour les abonnements inactifs
     if (path.startsWith('/dashboard')) {
-      // Les admins ont accès partout, sinon on vérifie l'abonnement
       if (profile?.role !== 'admin' && profile?.subscription_status !== 'active') {
+        console.log("--> [MIDDLEWARE] ACCÈS REFUSÉ : Redirection imminente vers /tarifs");
         const url = request.nextUrl.clone()
-        url.pathname = '/tarifs' // Redirection vers la page de paiement à 14,99€
+        url.pathname = '/tarifs'
         return NextResponse.redirect(url)
       }
     }
+  } else {
+    console.log("--> [MIDDLEWARE] Aucun utilisateur actif détecté sur la route :", path);
   }
 
   return supabaseResponse
+}
+
+// ⚠️ C'EST CETTE PARTIE QUI ACTIVE LE MIDDLEWARE SUR VOS ROUTES
+export const config = {
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+  ],
 }

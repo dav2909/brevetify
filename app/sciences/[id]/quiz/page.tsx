@@ -1,7 +1,6 @@
 'use client'
 
 import { createClient } from '@/lib/supabase/client'
-import { useRouter, useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 
@@ -13,94 +12,49 @@ interface Question {
   explanation: string
 }
 
-export default function QuizPage() {
-  const router = useRouter()
-  const params = useParams()
-  const chapterId = params?.id
-  const supabase = createClient()
+interface HistoryItem {
+  question: string
+  selected: string
+  correct: string
+  isCorrect: boolean
+  explanation: string
+}
 
-  const [loading, setLoading] = useState(true)
+export default function QuizPage({ params }: { params: { id: string } }) {
   const [questions, setQuestions] = useState<Question[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
-  const [selectedOption, setSelectedOption] = useState<string | null>(null)
+  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
   const [score, setScore] = useState(0)
-  const [showExplanation, setShowExplanation] = useState(false)
-  const [quizFinished, setQuizFinished] = useState(false)
+  const [showResults, setShowResults] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [history, setHistory] = useState<HistoryItem[]>([])
+  const supabase = createClient()
+
+  const QUIZ_LENGTH = 7
 
   useEffect(() => {
-    async function loadQuizQuestions() {
-      if (!chapterId) return
-
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        router.push('/login')
-        return
-      }
-
-      // Récupérer toutes les questions disponibles pour ce chapitre (le "panier")
+    async function fetchAndRandomizeQuestions() {
       const { data, error } = await supabase
-        .from('chapter_questions')
+        .from('questions')
         .select('*')
-        .eq('chapter_id', chapterId)
+        .eq('chapter_id', Number(params.id))
 
       if (error) {
-        console.error('Erreur lors du chargement des questions :', error.message)
+        console.error('Erreur chargement questions:', error.message)
       } else if (data && data.length > 0) {
-        // Mélanger aléatoirement le tableau de questions et en prendre 7 maximum
-        const shuffled = [...data].sort(() => 0.5 - Math.random())
-        setQuestions(shuffled.slice(0, 7))
-      }
+        const parsed = data.map(q => ({
+          ...q,
+          options: typeof q.options === 'string' ? JSON.parse(q.options) : q.options
+        }))
 
+        const shuffled = parsed.sort(() => 0.5 - Math.random())
+        setQuestions(shuffled.slice(0, QUIZ_LENGTH))
+      }
       setLoading(false)
     }
 
-    loadQuizQuestions()
-  }, [chapterId, router, supabase])
-
-  const handleOptionSelect = (option: string) => {
-    if (showExplanation) return
-    setSelectedOption(option)
-  }
-
-  const handleValidate = async () => {
-    // Empêche un double-clic rapide si la validation est déjà en cours
-    if (!selectedOption || showExplanation) return
-
-    // On active l'affichage des explications immédiatement pour bloquer les clics suivants
-    setShowExplanation(true)
-
-    const currentQuestion = questions[currentIndex]
-    const isCorrect = selectedOption === currentQuestion.correct_answer
-
-    if (isCorrect) {
-      setScore(prev => prev + 1)
-    }
-  }
-
-  const handleNext = async () => {
-    setSelectedOption(null)
-    setShowExplanation(false)
-
-    if (currentIndex + 1 < questions.length) {
-      setCurrentIndex(prev => prev + 1)
-    } else {
-      setQuizFinished(true)
-
-      // Enregistrement propre du score final sans risque de dépassement
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        // On s'assure que le score enregistré ne dépasse jamais le nombre total de questions
-        const finalScore = Math.min(score, questions.length)
-        
-        await supabase.from('quiz_attempts').insert({
-          user_id: user.id,
-          chapter_id: chapterId,
-          score: finalScore,
-          total_questions: questions.length
-        })
-      }
-    }
-  }
+    fetchAndRandomizeQuestions()
+  }, [params.id, supabase])
 
   if (loading) {
     return (
@@ -112,118 +66,195 @@ export default function QuizPage() {
 
   if (questions.length === 0) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 text-gray-500">
-        <p className="mb-4">Aucun quiz disponible pour ce chapitre pour le moment.</p>
-        <Link href={`/sciences/${chapterId}`} className="text-purple-600 font-semibold hover:underline">
-          ← Retour au chapitre
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 space-y-4">
+        <p className="text-gray-600">Aucune question n'est disponible pour ce chapitre.</p>
+        <Link href={`/sciences/${params.id}`} className="text-purple-600 font-bold hover:underline">
+          ← Retour à la fiche
         </Link>
-      </div>
-    )
-  }
-
-  if (quizFinished) {
-    const percentage = Math.round((score / questions.length) * 100)
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-6">
-        <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-200 max-w-md w-full text-center space-y-6">
-          <h2 className="text-2xl font-black text-gray-900">Quiz terminé </h2>
-          <div className="p-6 bg-purple-50 rounded-2xl">
-            <p className="text-sm text-purple-600 font-bold uppercase tracking-wider mb-1">Votre score</p>
-            <p className="text-4xl font-black text-purple-700">{score} / {questions.length}</p>
-            <p className="text-sm text-gray-500 mt-2">Soit {percentage}% de réussite</p>
-          </div>
-          <Link
-            href={`/sciences/${chapterId}`}
-            className="block w-full py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-2xl transition shadow-sm text-center"
-          >
-            ← Retour au chapitre
-          </Link>
-        </div>
       </div>
     )
   }
 
   const currentQuestion = questions[currentIndex]
 
+  const handleSelectOption = (option: string) => {
+    if (selectedAnswer !== null) return
+
+    setSelectedAnswer(option)
+    const isCorrect = option === currentQuestion.correct_answer
+
+    let newScore = score
+    if (isCorrect) {
+      newScore = score + 1
+      setScore(newScore)
+    }
+
+    setHistory(prev => [
+      ...prev,
+      {
+        question: currentQuestion.question,
+        selected: option,
+        correct: currentQuestion.correct_answer,
+        isCorrect,
+        explanation: currentQuestion.explanation
+      }
+    ])
+  }
+
+  const handleNext = async () => {
+    setSelectedAnswer(null)
+    
+    if (currentIndex + 1 < questions.length) {
+      setCurrentIndex(currentIndex + 1)
+    } else {
+      setShowResults(true)
+
+      // Calcul sécurisé du score final basé sur l'historique réel
+      const finalHistory = [...history]
+      const finalScore = finalHistory.filter(item => item.isCorrect).length
+
+      const { data: { user } } = await supabase.auth.getUser()
+
+      if (!user) {
+        console.error("Utilisateur non connecté, impossible d'enregistrer le score.")
+        return
+      }
+
+      // VÉRIFICATION : Assurez-vous que la table s'appelle bien 'quiz_results' dans Supabase
+      const { error } = await supabase.from('quiz_results').insert([
+        {
+          user_id: user.id,
+          chapter_id: Number(params.id),
+          score: finalScore,
+          total: questions.length,
+        }
+      ])
+
+      if (error) {
+        console.error("Erreur d'enregistrement du score dans Supabase:", error.message)
+      }
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 pb-20">
-      <header className="bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center sticky top-0 z-10">
-        <Link href="/dashboard" className="text-xl font-black bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+      <header className="bg-white border-b border-gray-200 px-8 py-4 flex justify-between items-center sticky top-0 z-10 shadow-sm">
+        <span className="text-xl font-black bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
           Brevetify
-        </Link>
-        <Link href={`/sciences/${chapterId}`} className="text-sm font-medium text-gray-600 hover:text-purple-600 transition">
-          ← Quitter le quiz
+        </span>
+        <Link href={`/sciences/${params.id}`} className="text-sm font-medium text-gray-600 hover:text-purple-600 transition">
+          ← Retour à la fiche
         </Link>
       </header>
 
-      <main className="max-w-2xl mx-auto px-6 py-10 space-y-6">
-        <div className="flex justify-between items-center text-sm font-bold text-gray-500">
-          <span>Question {currentIndex + 1} sur {questions.length}</span>
-          <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs">
-            Score : {score}
-          </span>
-        </div>
-
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-200 p-8 space-y-6">
-          <h2 className="text-xl font-bold text-gray-900">{currentQuestion.question}</h2>
-
-          <div className="space-y-3">
-            {currentQuestion.options.map((option, index) => {
-              let btnStyle = "border-gray-200 hover:border-purple-300 bg-white text-gray-800"
-              if (selectedOption === option) {
-                btnStyle = "border-purple-600 bg-purple-50 text-purple-900 ring-2 ring-purple-600"
-              }
-              if (showExplanation) {
-                if (option === currentQuestion.correct_answer) {
-                  btnStyle = "border-emerald-500 bg-emerald-50 text-emerald-900 font-bold"
-                } else if (selectedOption === option) {
-                  btnStyle = "border-red-500 bg-red-50 text-red-900"
-                }
-              }
-
-              return (
-                <button
-                  key={index}
-                  disabled={showExplanation}
-                  onClick={() => handleOptionSelect(option)}
-                  className={`w-full text-left p-4 rounded-2xl border-2 transition text-sm flex items-center justify-between ${btnStyle}`}
-                >
-                  <span>{option}</span>
-                </button>
-              )
-            })}
-          </div>
-
-          {showExplanation && (
-            <div className="p-4 rounded-2xl bg-gray-50 border border-gray-100 text-sm space-y-1">
-              <p className="font-bold text-gray-900">Explication :</p>
-              <p className="text-gray-600">{currentQuestion.explanation}</p>
+      <main className="max-w-2xl mx-auto px-6 py-10">
+        {!showResults ? (
+          <div className="bg-white border border-gray-200 rounded-3xl p-8 shadow-sm space-y-6">
+            <div className="flex justify-between items-center text-sm font-bold text-gray-500">
+              <span>Question {currentIndex + 1} sur {questions.length}</span>
+              <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full">Score : {score}</span>
             </div>
-          )}
 
-          <div className="pt-4 flex justify-end">
-            {!showExplanation ? (
-              <button
-                disabled={!selectedOption}
-                onClick={handleValidate}
-                className={`px-6 py-3 rounded-2xl font-bold text-sm transition ${
-                  selectedOption
-                    ? 'bg-purple-600 hover:bg-purple-700 text-white shadow-sm'
-                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                }`}
-              >
-                Valider
-              </button>
-            ) : (
-              <button
-                onClick={handleNext}
-                className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-2xl transition shadow-sm text-sm"
-              >
-                {currentIndex + 1 < questions.length ? 'Question suivante →' : 'Voir mon score →'}
-              </button>
+            <h2 className="text-xl font-black text-gray-900">{currentQuestion.question}</h2>
+
+            <div className="space-y-3">
+              {currentQuestion.options.map((option, idx) => {
+                let btnStyle = "w-full text-left p-4 rounded-2xl border font-medium transition flex items-center justify-between "
+                if (selectedAnswer !== null) {
+                  if (option === currentQuestion.correct_answer) {
+                    btnStyle += "bg-green-100 border-green-500 text-green-900 font-bold"
+                  } else if (option === selectedAnswer) {
+                    btnStyle += "bg-red-100 border-red-500 text-red-900 font-bold"
+                  } else {
+                    btnStyle += "bg-gray-50 border-gray-200 opacity-50 text-gray-500"
+                  }
+                } else {
+                  btnStyle += "bg-gray-50 border-gray-200 hover:bg-purple-50 hover:border-purple-300 text-gray-800"
+                }
+
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => handleSelectOption(option)}
+                    disabled={selectedAnswer !== null}
+                    className={btnStyle}
+                  >
+                    <span>{option}</span>
+                  </button>
+                )
+              })}
+            </div>
+
+            {selectedAnswer !== null && (
+              <div className="space-y-4 pt-4 border-t border-gray-100 animate-fadeIn">
+                <div className={`p-4 rounded-2xl border ${selectedAnswer === currentQuestion.correct_answer ? 'bg-green-50 border-green-200 text-green-900' : 'bg-red-50 border-red-200 text-red-900'}`}>
+                  <p className="font-bold mb-1">💡 Explication :</p>
+                  <p className="text-sm leading-relaxed">{currentQuestion.explanation}</p>
+                </div>
+
+                <div className="flex justify-end">
+                  <button
+                    onClick={handleNext}
+                    className="px-6 py-3 bg-purple-600 text-white font-bold rounded-2xl shadow hover:bg-purple-700 transition"
+                  >
+                    {currentIndex + 1 < questions.length ? "Question suivante →" : "Voir mon bilan"}
+                  </button>
+                </div>
+              </div>
             )}
           </div>
-        </div>
+        ) : (
+          <div className="bg-white border border-gray-200 rounded-3xl p-8 shadow-sm space-y-8">
+            <div className="text-center space-y-3">
+              <h2 className="text-3xl font-black text-gray-900">Quiz terminé</h2>
+              <p className="text-gray-600">Votre score final :</p>
+              <div className="text-5xl font-black text-purple-600">
+                {score} / {questions.length}
+              </div>
+              <p className="text-sm text-gray-500">
+                {score >= questions.length * 0.8 ? "Excellent travail ! Le chapitre est parfaitement maîtrisé." : "Encore quelques révisions et ce sera parfait !"}
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="text-lg font-bold text-gray-900 border-b pb-2">Détail des questions</h3>
+              <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
+                {history.map((item, idx) => (
+                  <div key={idx} className={`p-5 rounded-2xl border space-y-2 ${item.isCorrect ? 'bg-green-50/40 border-green-200' : 'bg-red-50/40 border-red-200'}`}>
+                    <div className="flex items-start justify-between gap-4">
+                      <span className="font-bold text-sm text-gray-900">Q{idx + 1}. {item.question}</span>
+                      <span className={`text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap ${item.isCorrect ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                        {item.isCorrect ? 'Correct' : 'Incorrect'}
+                      </span>
+                    </div>
+                    <div className="text-xs space-y-1 text-gray-600 pt-1">
+                      <p>Votre réponse : <span className={`font-semibold ${item.isCorrect ? 'text-green-700' : 'text-red-700'}`}>{item.selected}</span></p>
+                      {!item.isCorrect && <p>Bonne réponse : <span className="font-semibold text-green-700">{item.correct}</span></p>}
+                      <p className="italic text-gray-500 pt-2 border-t border-gray-200/50 mt-2">💡 {item.explanation}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="pt-4 flex justify-center space-x-4">
+              <Link
+                href={`/sciences/${params.id}`}
+                className="px-6 py-3 bg-gray-100 text-gray-700 font-bold rounded-2xl hover:bg-gray-200 transition"
+              >
+                Retour à la fiche
+              </Link>
+              <button
+                onClick={() => {
+                  window.location.reload()
+                }}
+                className="px-6 py-3 bg-purple-600 text-white font-bold rounded-2xl shadow hover:bg-purple-700 transition"
+              >
+                Refaire un quiz
+              </button>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   )

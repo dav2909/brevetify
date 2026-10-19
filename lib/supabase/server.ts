@@ -9,17 +9,19 @@ export async function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() {
-          return cookieStore.getAll()
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            )
-          } catch {
-            // L'appel setAll a été fait depuis un Server Component.
-            // Cela peut être ignoré si tu as un middleware qui rafraîchit les sessions.
+          getAll() {
+            return cookieStore.getAll()
+          },
+          setAll(cookiesToSet: Array<{ name: string; value: string; options?: any }>) {
+                try {
+                  cookiesToSet.forEach(({ name, value, options }) =>
+                    cookieStore.set(name, value, options)
+                  )
+                } catch {
+                  // Le 'catch' est ignoré si appelé depuis un Server Component
+                }
+              }
+            
           }
         },
       },

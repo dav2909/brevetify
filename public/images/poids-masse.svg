@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 140" width="100%" height="100%">
+  <style>
+    .bg { fill: #f8fafc; rx: 8px; }
+    .title { font-family: sans-serif; font-weight: bold; font-size: 14px; fill: #1e293b; }
+    .box { fill: #d1fae5; stroke: #10b981; stroke-width: 1.5; rx: 8px; }
+    .formula { font-family: sans-serif; font-weight: bold; font-size: 22px; fill: #047857; }
+  </style>
+
+  <rect width="500" height="140" class="bg"/>
+  <text x="25" y="30" class="title">Relation entre Poids et Masse (Pesanteur)</text>
+
+  <!-- Boîte de la formule -->
+  <rect x="25" y="50" width="450" height="65" class="box"/>
+  <text x="195" y="92" class="formula">P = m &#215; g</text>
+</svg>

@@ -26,6 +26,7 @@ export async function POST(req: Request) {
       },
       success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard?success=true`,
       cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/tarifs?canceled=true`,
+      customer_email: userEmail,
     })
 
     return NextResponse.json({ url: session.url })

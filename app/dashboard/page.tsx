@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/client'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import ShareModuleModal from '@/components/ShareModuleModal'
 
 interface Chapter {
   id: number
@@ -10,12 +11,19 @@ interface Chapter {
   order_index?: number
   module_name: string
   matiere_name: string
-  category: 'mathematiques' | 'hist-geo-emc' | 'francais' | 'science'
+  subject: 'mathematiques' | 'hist-geo-emc' | 'francais' | 'science'
 }
 
 interface ChapterWithStatus extends Chapter {
   attemptsCount: number
   isValide: boolean
+}
+
+interface AttemptRecord {
+  chapter_id: number
+  score: number
+  total: number
+  created_at: string
 }
 
 const CATEGORIES_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
@@ -53,26 +61,55 @@ export default function DashboardPage() {
         return
       }
 
-      // 2. Récupérer toutes les tentatives de l'utilisateur
-      const { data: attempts, error: attError } = await supabase
-        .from('quiz_results_hist_geo_emc')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
+      // 2. Récupérer les tentatives en parallèle depuis les 3 tables correspondantes
+      const [mathSciRes, histGeoRes, francaisRes, quizResultsRes] = await Promise.all([
+        supabase.from('quiz_attempts').select('chapter_id, score, total, created_at').eq('user_id', user.id),
+        supabase.from('quiz_results_hist_geo_emc').select('chapter_id, score, total, created_at').eq('user_id', user.id),
+        supabase.from('quiz_results_francais').select('chapter_id, score, total, created_at').eq('user_id', user.id),
+        supabase.from('quiz_results').select('chapter_id, score, total, created_at').eq('user_id', user.id),
+      ])
 
-      if (attError) {
-        console.error('Erreur chargement tentatives:', attError.message)
+      // Fusionner toutes les tentatives dans un dictionnaire ou un tableau global avec leur catégorie/origine si besoin,
+      // ou les stocker dans une map globale indexée par chapter_id
+      const allAttemptsMap: Record<number, AttemptRecord[]> = {}
+
+      const registerAttempts = (data: any[] | null) => {
+        if (!data) return
+        data.forEach(att => {
+          const chapId = att.chapter_id
+          if (!allAttemptsMap[chapId]) {
+            allAttemptsMap[chapId] = []
+          }
+          allAttemptsMap[chapId].push({
+            chapter_id: att.chapter_id,
+            score: att.score,
+            total: att.total ?? att.total_questions ?? 10,
+            created_at: att.created_at
+          })
+        })
       }
+      
+      registerAttempts(mathSciRes.data)
+      registerAttempts(histGeoRes.data)
+      registerAttempts(francaisRes.data)
+      registerAttempts(quizResultsRes.data) // Enregistrement des résultats de physics-chimie / sciences
+
+      // Trier les tentatives par date décroissante pour chaque chapitre
+      Object.keys(allAttemptsMap).forEach(chapIdStr => {
+        const chapId = Number(chapIdStr)
+        allAttemptsMap[chapId].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      })
 
       // 3. Appliquer la règle : les 5 derniers essais >= 80%
       const evaluatedChapters: ChapterWithStatus[] = (chapters || []).map(chapter => {
-        const chapterAttempts = attempts?.filter(a => a.chapter_id === chapter.id) || []
+        const chapterAttempts = allAttemptsMap[chapter.id] || []
         
         let isValide = false
         if (chapterAttempts.length >= 5) {
           const lastFive = chapterAttempts.slice(0, 5)
           isValide = lastFive.every(attempt => {
-            const percentage = (attempt.score / attempt.total) * 100
+            const total = attempt.total || 1
+            const percentage = (attempt.score / total) * 100
             return percentage >= 80
           })
         }
@@ -210,7 +247,6 @@ export default function DashboardPage() {
 
                   <div className="space-y-6 pl-2 sm:pl-4 border-l-2 border-gray-200">
                     {Object.entries(modulesInCat).map(([moduleName, moduleData]) => {
-                      //const sortedChapters = moduleData.chapters.sort((a, b) => a.id - b.id)
                       const sortedChapters = moduleData.chapters.sort((a, b) => (a.order_index || 0) - (b.order_index || 0) || a.id - b.id)
                       
                       const totalChapitres = sortedChapters.length
@@ -247,10 +283,18 @@ export default function DashboardPage() {
 
                           <div className="text-sm font-semibold text-gray-600 bg-gray-50 p-3.5 rounded-2xl border border-gray-100">
                             {chapitresRestants === 0 ? (
-                              <span className="text-emerald-600 font-bold flex items-center gap-1.5">
-                                🎉 Félicitations ! Module entièrement validé.
-                              </span>
-                            ) : (
+                                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-emerald-600 font-bold">
+                                  <span className="flex items-center gap-1.5">
+                                    🎉 Félicitations ! Module entièrement validé.
+                                  </span>
+                                  <button
+                                    onClick={() => setSharingModule({ name: moduleName, matiere: moduleData.matiereName })}
+                                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold rounded-xl shadow transition"
+                                  >
+                                    Défier mes potes 📲
+                                  </button>
+                                </div>
+                              ) : (
                               <span>
                                 Il vous reste <strong className="text-purple-600">{chapitresRestants} chapitre(s)</strong> à valider (≥ 80% sur 5 essais) pour terminer ce module.
                               </span>
@@ -279,7 +323,7 @@ export default function DashboardPage() {
                                       {chap.isValide ? 'Validé (5/5 OK)' : 'En cours'}
                                     </span>
                                     <Link
-                                      href={`/${chap.category}/${chap.id}`}
+                                      href={`/${chap.subject}/${chap.id}`}
                                       className="text-xs font-bold text-purple-600 hover:underline px-2 py-1"
                                     >
                                       Réviser →

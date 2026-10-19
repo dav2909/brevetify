@@ -7,6 +7,7 @@ import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
 import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
+import 'katex/dist/katex.min.css'
 
 interface Chapter {
   id: number
@@ -83,6 +84,9 @@ export default function ChapterDetailPage() {
     )
   }
 
+  // Détection automatique : si le contenu commence par une balise HTML, on l'affiche en HTML brut, sinon en Markdown
+  const isHtml = chapter.content?.trim().startsWith('<')
+
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
       <header className="bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center sticky top-0 z-10">
@@ -106,23 +110,30 @@ export default function ChapterDetailPage() {
 
         <h1 className="text-3xl font-extrabold text-gray-900 mb-8">{chapter.title}</h1>
 
-        {/* Fiche de révision avec support KaTeX et texte justifié */}
+        {/* Fiche de révision avec affichage hybride (Markdown ou HTML selon le contenu) */}
         <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-200 mb-8">
           {chapter.content ? (
-            <ReactMarkdown
-              remarkPlugins={[remarkMath]}
-              rehypePlugins={[rehypeKatex]}
-              components={{
-                h2: ({node, ...props}) => <h2 className="text-xl font-bold text-indigo-700 mt-6 mb-3 pb-1 border-b border-gray-100" {...props} />,
-                h3: ({node, ...props}) => <h3 className="text-lg font-semibold text-gray-800 mt-4 mb-2" {...props} />,
-                p: ({node, ...props}) => <p className="text-gray-700 leading-relaxed mb-3 text-justify" {...props} />,
-                ul: ({node, ...props}) => <ul className="list-disc list-inside space-y-1 mb-4 text-gray-700 text-justify" {...props} />,
-                li: ({node, ...props}) => <li className="ml-4 text-justify" {...props} />,
-                blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-indigo-500 pl-4 py-2 my-4 bg-indigo-50/50 text-indigo-900 italic rounded-r-lg text-justify" {...props} />
-              }}
-            >
-              {chapter.content}
-            </ReactMarkdown>
+            isHtml ? (
+              <div 
+                className="space-y-4 text-gray-700 leading-relaxed [&>h2]:text-xl [&>h2]:font-bold [&>h2]:text-indigo-700 [&>h2]:mt-6 [&>h2]:mb-3 [&>h2]:pb-1 [&>h2]:border-b [&>h2]:border-gray-100 [&>p]:leading-relaxed [&>p]:text-justify [&>ul]:list-disc [&>ul]:list-inside [&>ul]:space-y-1 [&>ul]:mb-4 [&>ul]:text-justify"
+                dangerouslySetInnerHTML={{ __html: chapter.content }}
+              />
+            ) : (
+              <ReactMarkdown
+                remarkPlugins={[remarkMath]}
+                rehypePlugins={[rehypeKatex]}
+                components={{
+                  h2: ({node, ...props}) => <h2 className="text-xl font-bold text-indigo-700 mt-6 mb-3 pb-1 border-b border-gray-100" {...props} />,
+                  h3: ({node, ...props}) => <h3 className="text-lg font-semibold text-gray-800 mt-4 mb-2" {...props} />,
+                  p: ({node, ...props}) => <p className="text-gray-700 leading-relaxed mb-3 text-justify" {...props} />,
+                  ul: ({node, ...props}) => <ul className="list-disc list-inside space-y-1 mb-4 text-gray-700 text-justify" {...props} />,
+                  li: ({node, ...props}) => <li className="ml-4 text-justify" {...props} />,
+                  blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-indigo-500 pl-4 py-2 my-4 bg-indigo-50/50 text-indigo-900 italic rounded-r-lg text-justify" {...props} />
+                }}
+              >
+                {chapter.content}
+              </ReactMarkdown>
+            )
           ) : (
             <p className="text-gray-400 italic">Le contenu de cette fiche de révision sera bientôt ajouté.</p>
           )}
