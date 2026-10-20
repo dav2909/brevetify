@@ -5,7 +5,6 @@ import Stripe from 'stripe'
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!
 
-// Client Supabase avec la clé service_role pour pouvoir modifier les profils librement
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -23,22 +22,41 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: `Webhook Error: ${err.message}` }, { status: 400 })
   }
 
-  const subscription = event.data.object as Stripe.Subscription
-  const userId = subscription.metadata?.userId
+  const dataObject = event.data.object as any
+  let userId = dataObject.metadata?.userId || dataObject.client_reference_id
+
+  // Si l'événement vient d'une facture ou d'un abonnement sans metadata direct, 
+  // on essaie de récupérer le client associé pour retrouver l'info si besoin
+  let customerId = dataObject.customer
 
   if (userId) {
     let status = 'inactive'
-    if (subscription.status === 'trialing') status = 'trialing'
-    if (subscription.status === 'active') status = 'active'
-    if (subscription.status === 'canceled' || subscription.status === 'unpaid') status = 'inactive'
+    
+    // Gérer les différents statuts possibles
+    if (['active', 'trialing'].includes(dataObject.status)) {
+      status = dataObject.status
+    }
+    // Si c'est un événement de checkout session réussi
+    if (event.type === 'checkout.session.completed') {
+      status = dataObject.payment_status === 'paid' || dataObject.status === 'complete' ? 'active' : 'inactive'
+      if (dataObject.subscription) {
+        // Récupérer le statut réel de l'abonnement si besoin
+        const sub = await stripe.subscriptions.retrieve(dataObject.subscription as string)
+        status = sub.status // 'active' ou 'trialing'
+      }
+    }
 
     // Mise à jour du profil dans Supabase
+    const updateData: any = {
+      subscription_status: status,
+    }
+    if (customerId) {
+      updateData.stripe_customer_id = customerId as string
+    }
+
     await supabaseAdmin
       .from('profiles')
-      .update({
-        subscription_status: status,
-        stripe_customer_id: subscription.customer as string,
-      })
+      .update(updateData)
       .eq('id', userId)
   }
 
