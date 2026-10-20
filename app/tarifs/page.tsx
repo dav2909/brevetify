@@ -92,7 +92,7 @@ export default function TarifsPage() {
           </div>
 
           <div className="mb-6">
-            <h3 className="text-xl font-bold text-slate-900">Pass Annuelles & Fiches</h3>
+            <h3 className="text-xl font-bold text-slate-900">Pass Annales & Fiches</h3>
             <p className="text-slate-500 text-sm mt-1">Idéal pour réussir son année et préparer l'examen sereinement.</p>
           </div>
 
