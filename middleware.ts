@@ -79,9 +79,9 @@ export async function middleware(request: NextRequest) {
   return supabaseResponse
 }
 
-// Le matcher pour cibler les routes
+// Le matcher pour cibler les routes en excluant les webhooks Stripe
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!api/webhooks/stripe|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }
