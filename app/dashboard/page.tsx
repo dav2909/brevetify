@@ -34,7 +34,6 @@ const CATEGORIES_CONFIG: Record<string, { label: string; color: string; bg: stri
   science: { label: 'Sciences', color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-200' },
 }
 
-// Ordre d'affichage strict souhaité
 const CATEGORY_ORDER = ['mathematiques', 'francais', 'hist-geo-emc', 'science']
 
 export default function DashboardPage() {
@@ -51,7 +50,6 @@ export default function DashboardPage() {
         return
       }
 
-      // 1. Récupérer tous les chapitres
       const { data: chapters, error: chapError } = await supabase
         .from('chapters')
         .select('*')
@@ -63,7 +61,6 @@ export default function DashboardPage() {
         return
       }
 
-      // 2. Récupérer les tentatives en parallèle depuis les 3 tables correspondantes
       const [mathSciRes, histGeoRes, francaisRes, quizResultsRes] = await Promise.all([
         supabase.from('quiz_attempts').select('chapter_id, score, total, created_at').eq('user_id', user.id),
         supabase.from('quiz_results_hist_geo_emc').select('chapter_id, score, total, created_at').eq('user_id', user.id),
@@ -71,8 +68,6 @@ export default function DashboardPage() {
         supabase.from('quiz_results').select('chapter_id, score, total, created_at').eq('user_id', user.id),
       ])
 
-      // Fusionner toutes les tentatives dans un dictionnaire ou un tableau global avec leur catégorie/origine si besoin,
-      // ou les stocker dans une map globale indexée par chapter_id
       const allAttemptsMap: Record<number, AttemptRecord[]> = {}
 
       const registerAttempts = (data: any[] | null) => {
@@ -94,15 +89,13 @@ export default function DashboardPage() {
       registerAttempts(mathSciRes.data)
       registerAttempts(histGeoRes.data)
       registerAttempts(francaisRes.data)
-      registerAttempts(quizResultsRes.data) // Enregistrement des résultats de physics-chimie / sciences
+      registerAttempts(quizResultsRes.data)
 
-      // Trier les tentatives par date décroissante pour chaque chapitre
       Object.keys(allAttemptsMap).forEach(chapIdStr => {
         const chapId = Number(chapIdStr)
         allAttemptsMap[chapId].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       })
 
-      // 3. Appliquer la règle : les 5 derniers essais >= 80%
       const evaluatedChapters: ChapterWithStatus[] = (chapters || []).map(chapter => {
         const chapterAttempts = allAttemptsMap[chapter.id] || []
         
@@ -138,7 +131,6 @@ export default function DashboardPage() {
     )
   }
 
-  // Répartition par catégorie principale
   const groupedByCategory = chaptersData.reduce((acc, chapter) => {
     const cat = (chapter as any).category || 'hist-geo-emc'
     if (!acc[cat]) {
@@ -148,7 +140,6 @@ export default function DashboardPage() {
     return acc
   }, {} as Record<string, ChapterWithStatus[]>)
 
-  // Tri des catégories selon l'ordre strict défini dans CATEGORY_ORDER
   const sortedCategoryEntries = Object.entries(groupedByCategory).sort(([catA], [catB]) => {
     const indexA = CATEGORY_ORDER.indexOf(catA)
     const indexB = CATEGORY_ORDER.indexOf(catB)
@@ -161,9 +152,14 @@ export default function DashboardPage() {
         <span className="text-xl font-black bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
           Brevetify - Tableau de bord
         </span>
-        <Link href="/" className="text-sm font-medium text-gray-600 hover:text-purple-600 transition">
-          ← Accueil
-        </Link>
+        
+        {/* Ajout du bouton de gestion/résiliation de l'abonnement ici */}
+        <div className="flex items-center gap-4">
+          <ManageSubscriptionButton />
+          <Link href="/" className="text-sm font-medium text-gray-600 hover:text-purple-600 transition">
+            ← Accueil
+          </Link>
+        </div>
       </header>
 
       <main className="max-w-4xl mx-auto px-6 py-10 space-y-10">
@@ -176,7 +172,6 @@ export default function DashboardPage() {
 
         {/* SECTION DES DEUX CARTES (Réviser les matières & Banque d'Annales) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Carte 1 : Réviser les matières */}
           <div className="bg-gradient-to-br from-indigo-700 to-blue-800 rounded-3xl p-6 text-white shadow-lg flex flex-col justify-between space-y-6">
             <div className="space-y-2">
               <span className="inline-block px-3 py-1 bg-white/20 text-white font-bold text-xs rounded-full uppercase tracking-wider">
@@ -195,7 +190,6 @@ export default function DashboardPage() {
             </Link>
           </div>
 
-          {/* Carte 2 : Banque d'Annales */}
           <div className="bg-gradient-to-br from-purple-700 to-indigo-800 rounded-3xl p-6 text-white shadow-lg flex flex-col justify-between space-y-6">
             <div className="space-y-2">
               <span className="inline-block px-3 py-1 bg-white/20 text-white font-bold text-xs rounded-full uppercase tracking-wider">
@@ -287,7 +281,7 @@ export default function DashboardPage() {
                             {chapitresRestants === 0 ? (
                                 <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-emerald-600 font-bold">
                                   <span className="flex items-center gap-1.5">
-                                     Félicitations ! Module entièrement validé.
+                                    Félicitations ! Module entièrement validé.
                                   </span>
                                   <button
                                     onClick={() => setSharingModule({ name: moduleName, matiere: moduleData.matiereName })}
