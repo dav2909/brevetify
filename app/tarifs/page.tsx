@@ -33,7 +33,7 @@ export default function TarifsPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          priceId: 'price_1UNgqhA57dOcmThamzcCKF1f', // Price ID Stripe (ex: price_1M...)
+          priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID, // Price ID Stripe (ex: price_1M...)
           userEmail: user.email,
           userId: user.id,
         }),
