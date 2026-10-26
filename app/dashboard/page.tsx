@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import ShareModuleModal from '@/components/ShareModuleModal'
+import ManageSubscriptionButton from '@/components/ManageSubscriptionButton'
 
 interface Chapter {
   id: number
