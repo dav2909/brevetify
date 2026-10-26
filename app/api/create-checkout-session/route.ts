@@ -30,7 +30,12 @@ export async function POST(req: Request) {
   try {
     const { priceId } = await req.json()
 
-    // 2. Vérifier si l'utilisateur a déjà un stripe_customer_id dans la table profiles
+    // 2. Contrôle de sécurité : vérifier que le priceId correspond à la variable Vercel
+    if (!priceId || priceId !== process.env.NEXT_PUBLIC_STRIPE_PRICE_ID) {
+      return NextResponse.json({ error: 'Tarif invalide ou non autorisé.' }, { status: 400 })
+    }
+
+    // 3. Vérifier si l'utilisateur a déjà un stripe_customer_id dans la table profiles
     const { data: profile } = await supabase
       .from('profiles')
       .select('stripe_customer_id')
@@ -39,7 +44,7 @@ export async function POST(req: Request) {
 
     let customerId = profile?.stripe_customer_id
 
-    // 3. S'il n'en a pas, créer le client dans Stripe et enregistrer l'ID dans Supabase
+    // 4. S'il n'en a pas, créer le client dans Stripe et enregistrer l'ID dans Supabase
     if (!customerId) {
       const customer = await stripe.customers.create({
         email: user.email,
@@ -56,14 +61,15 @@ export async function POST(req: Request) {
         .eq('id', user.id)
 
       if (updateError) {
-        console.error('Erreur mise à jour profil:', updateError.message)
+        console.error('Erreur critique mise à jour profil:', updateError.message)
+        return NextResponse.json({ error: 'Erreur lors de la mise à jour du profil.' }, { status: 500 })
       }
     }
 
-    // 4. Créer la session Checkout en rattachant le customerId et la période d'essai
+    // 5. Créer la session Checkout avec la période d'essai de 7 jours
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
-      customer: customerId, // Utilisation directe de l'ID client sécurisé
+      customer: customerId,
       line_items: [
         {
           price: priceId,
@@ -71,7 +77,7 @@ export async function POST(req: Request) {
         },
       ],
       subscription_data: {
-        trial_period_days: 7, // 7 jours d'essai gratuit
+        trial_period_days: 7,
       },
       metadata: {
         userId: user.id,

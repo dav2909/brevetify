@@ -24,10 +24,22 @@ export async function POST(req: Request) {
 
   const dataObject = event.data.object as any
   let userId = dataObject.metadata?.userId || dataObject.client_reference_id
-
-  // Si l'événement vient d'une facture ou d'un abonnement sans metadata direct, 
-  // on essaie de récupérer le client associé pour retrouver l'info si besoin
   let customerId = dataObject.customer
+
+  // SÉCURITÉ / ROBUSTESSE : Si le userId n'est pas dans les métadonnées de l'événement courant
+  // (ex: événements de type invoice ou subscription mis à jour sans metadata direct),
+  // on recherche l'utilisateur dans Supabase via son stripe_customer_id.
+  if (!userId && customerId) {
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .eq('stripe_customer_id', customerId)
+      .single()
+
+    if (profile) {
+      userId = profile.id
+    }
+  }
 
   if (userId) {
     let status = 'inactive'
@@ -36,11 +48,11 @@ export async function POST(req: Request) {
     if (['active', 'trialing'].includes(dataObject.status)) {
       status = dataObject.status
     }
+
     // Si c'est un événement de checkout session réussi
     if (event.type === 'checkout.session.completed') {
       status = dataObject.payment_status === 'paid' || dataObject.status === 'complete' ? 'active' : 'inactive'
       if (dataObject.subscription) {
-        // Récupérer le statut réel de l'abonnement si besoin
         const sub = await stripe.subscriptions.retrieve(dataObject.subscription as string)
         status = sub.status // 'active' ou 'trialing'
       }
@@ -54,10 +66,15 @@ export async function POST(req: Request) {
       updateData.stripe_customer_id = customerId as string
     }
 
-    await supabaseAdmin
+    const { error: updateError } = await supabaseAdmin
       .from('profiles')
       .update(updateData)
       .eq('id', userId)
+
+    if (updateError) {
+      console.error('Erreur mise à jour webhook Supabase:', updateError.message)
+      return NextResponse.json({ error: 'Database update failed' }, { status: 500 })
+    }
   }
 
   return NextResponse.json({ received: true })
